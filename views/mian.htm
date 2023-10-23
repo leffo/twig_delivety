@@ -1,0 +1,118 @@
+{% set days = [
+    {"start":"2023-06-09 09:00:00","end":"2023-06-09 18:00:00","close":false},
+    {"start":"2023-06-09 10:00:00","end":"2023-06-09 19:00:00","close":false},
+    {"start":"2023-06-09 00:00:00","end":"2023-06-09 00:00:00","close":false},
+    {"start":"2023-06-09 00:00:00","end":"2023-06-09 00:00:00","close":false},
+    {"start":"2023-06-09 00:00:00","end":"2023-06-09 00:00:00","close":false},
+    {"start":"2023-06-09 00:00:00","end":"2023-06-09 00:00:00","close":true},
+    {"start":"2023-06-09 00:00:00","end":"2023-06-09 00:00:00","close":true},
+] %}
+
+{% set timeexclude = [] %}
+{% set dayexclude = [] %}
+
+{% set timeexcludeN = [] %}
+
+{# ISO 8601 numeric representation of the day of the week  - 1 (for Monday) through 7 (for Sunday)#}
+{% set currentWeekDay = "now"|date('N') - 1 %}
+
+{% for k, i in days %}
+    {% set dayexcludelength = dayexclude|length %}
+
+    {% if i.close %}
+        {% set dayexclude = dayexclude|merge({
+            (dayexcludelength) : k
+        }) %}
+    {% else %}
+        {% set hours = [] %}
+        {% set exHours = [] %}
+
+        {% set hoursN = [] %}
+
+        {% set start = i.start|date('G') %}
+        {% set end = i.end|date('G') %}
+
+        {% if i.start and i.end  and start != end %}
+            {% if start > end %}
+                {% if end != 0 %}
+                    {% for elem in start..24 %}
+                        {% set hourslength = hours|length %}
+                        {% if  elem != 24 %}
+                            {% set hours = hours|merge({
+                                (hourslength) : elem
+                            }) %}
+                        {% else %}
+                            {% for elem2 in 0..end-1 %}
+                                {% set hourslength = hours|length %}
+                                {% set hours = hours|merge({
+                                    (hourslength) : elem2
+                                }) %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    {% for elem in start..24 %}
+                        {% set hourslength = hours|length %}
+                        {% if  elem != 24 %}
+                            {% set hours = hours|merge({
+                                (hourslength) : elem
+                            }) %}
+                        {% else %}
+                            {% set hours = hours|merge({
+                                (hourslength) : 0
+                            }) %}
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            {% else %}
+                {% set endNN = i.start|date_modify('- 15 min')|date('G:i') %}
+                {% set break = false %}
+                {% for step in 1..125 %}
+                    {% if not break %}
+                        {% if dateStep == endNN %}
+                            {% set break = true %}
+                        {% else %}
+                            {% set dateStep = i.end|date_modify('+ ' ~ 15 * step ~ ' min')|date('G:i') %}
+                            {% set hourslength = hoursN|length %}
+                            {% set hoursN = hoursN|merge({
+                                (hourslength) : dateStep
+                            }) %}
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+
+                {% for elem in start..end-1 %}
+                    {% set hourslength = hours|length %}
+                    {% set hours = hours|merge({
+                        (hourslength) : elem
+                    }) %}
+                {% endfor %}
+            {% endif %}
+        {% endif %}
+
+        {% if hoursN is not empty %}
+            {% set timeexcludeN = timeexcludeN|merge({
+                (k) : {
+                    0: hoursN[0]|date_modify('- 1 min')|date('G:i'),
+                    1: hoursN[hoursN|length-1]
+                }
+            }) %}
+        {% endif %}
+
+        {% if hours is not empty %}
+            {% for val in 0..23 %}
+                {% set kk = exHours|length %}
+                {% if val not in hours %}
+                    {% set exHours = exHours|merge({
+                        (kk) : val
+                    }) %}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+
+
+        {% set timeexclude = timeexclude|merge({
+            (k) : (exHours)
+        }) %}
+    {% endif %}
+{% endfor %}
